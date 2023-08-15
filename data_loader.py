@@ -46,6 +46,8 @@ class DataSet:
         return train_data.shuffle(buffer_size=1000, seed=225), val_data.shuffle(buffer_size=1000, seed=225)
 
 
+    # Read an image, resize it according to the given image shape.
+    # Return image tensor scaled to [0, 1]
     def get_data(self, image, label):
         image = tf.io.read_file(image)
         image = tf.io.decode_jpeg(image, channels=3)
@@ -55,11 +57,13 @@ class DataSet:
         return image, label
 
 
+    # Used to create Tensorflow dataset from image paths and labels
     def tf_dataset(self, images, labels):
         dataset = tf.data.Dataset.from_tensor_slices((images, labels))
         dataset = dataset.shuffle(buffer_size=1000)
         dataset = dataset.map(self.get_data)
         return dataset
+
 
     # SOURCE: https://keras.io/examples/vision/cutmix/
     def sample_beta_distribution(self, size, concentration_0=0.2, concentration_1=0.2):
