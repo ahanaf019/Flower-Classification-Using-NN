@@ -2,6 +2,8 @@ import tensorflow as tf
 from glob import glob
 import os
 from imgaug import augmenters as iaa
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 class DataSet:
@@ -201,8 +203,6 @@ if __name__ == '__main__':
     td = tf.data.Dataset.zip((t1, t2))
     train_ds_cmu = td.map(dataset.cutmix, num_parallel_calls=tf.data.AUTOTUNE).batch(32).prefetch(tf.data.AUTOTUNE)
     
-    import matplotlib.pyplot as plt
-    import numpy as np
     
     # Plot results
     image_batch, label_batch = next(iter(train_ds_cmu))
