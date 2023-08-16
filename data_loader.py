@@ -1,14 +1,16 @@
 import tensorflow as tf
 from glob import glob
 import os
+from imgaug import augmenters as iaa
 
 
 class DataSet:
-    def __init__(self, dataset_dir : str, image_size : int=224):
+    def __init__(self, dataset_dir : str, image_size : int=224, rand_aug_N : int=5, rand_aug_M : int=2):
         self.dataset_dir = dataset_dir
         self.image_size = image_size
         self.class_names = os.listdir(self.dataset_dir)
         self.classes = [ x for x in range(len(self.class_names)) ]
+        self.rand_aug = iaa.RandAugment(n=rand_aug_N, m=rand_aug_M)
         
         self.train_paths = []
         self.val_paths = []
@@ -169,6 +171,16 @@ class DataSet:
         return (images, labels)
     
 
+    # SOURCE: https://keras.io/examples/vision/randaugment/
+    def rand_augment(self, images):
+        # Input to `augment()` is a TensorFlow tensor which
+        # is not supported by `imgaug`. This is why we first
+        # convert it to its `numpy` variant.
+        images = images * 255.0
+        images = tf.cast(images, tf.uint8)
+        return self.rand_aug(images=images.numpy()) / 255.0
+
+
 if __name__ == '__main__':
     # How to use the Dataset Class
     dataset = DataSet(dataset_dir='flower_images')
@@ -226,8 +238,29 @@ if __name__ == '__main__':
     # plt.show()
     
     
-    ### Using CutMix and MixUp together
+    ### Using RandAugment
     # ---------------------------------------------------------------------
+    # NOTE: we need to batch first for RandAugment. Only one dataset is required.
+    train_ds_rand = train_data.batch(32).map(
+        lambda x, y: (tf.py_function(dataset.rand_augment, [x], [tf.float32])[0], y),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    ).prefetch(tf.data.AUTOTUNE)
+    
+    # Plot results
+    sample_images, _ = next(iter(train_ds_rand))
+    plt.figure(figsize=(10, 10))
+    for i, image in enumerate(sample_images[:9]):
+        ax = plt.subplot(3, 3, i + 1)
+        plt.imshow(image.numpy())
+        plt.axis("off")
+    plt.suptitle('Rand Augmentation')
+    # plt.show()
+    
+    
+    ### Using CutMix, MixUp and RandAugment together
+    # ---------------------------------------------------------------------
+    
+    # First use CutMix, then Mixup, lastly RandAugment
     t1 = train_data.map(lambda x, y: (x, y))
     t2 = train_data.map(lambda x, y: (x, y))
     
@@ -235,16 +268,21 @@ if __name__ == '__main__':
     train_ds_cmu1 = td.map(dataset.cutmix, num_parallel_calls=tf.data.AUTOTUNE).batch(32)
     train_ds_cmu2 = td.map(dataset.cutmix, num_parallel_calls=tf.data.AUTOTUNE).batch(32)
     td = tf.data.Dataset.zip((train_ds_cmu1, train_ds_cmu2))
-    train_ds_cmu_mu = td.map(lambda train_ds_cmu1, train_ds_cmu2: dataset.mix_up(train_ds_cmu1, train_ds_cmu2, alpha=0.2), num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+    train_ds_cmu_mu = td.map(lambda train_ds_cmu1, train_ds_cmu2: dataset.mix_up(train_ds_cmu1, train_ds_cmu2, alpha=0.2), num_parallel_calls=tf.data.AUTOTUNE)
+    
+    train_ds_cmu_mu_rand = train_ds_cmu_mu.map(
+        lambda x, y: (tf.py_function(dataset.rand_augment, [x], [tf.float32])[0], y),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    ).prefetch(tf.data.AUTOTUNE)
     
     # Plot results
-    image_batch, label_batch = next(iter(train_ds_cmu_mu))
+    image_batch, label_batch = next(iter(train_ds_cmu_mu_rand))
     plt.figure(figsize=(10, 10))
     for i in range(9):
         ax = plt.subplot(3, 3, i + 1)
         plt.title(dataset.class_names[np.argmax(label_batch[i].numpy())])
         plt.imshow(image_batch[i])
         plt.axis("off")
-    plt.suptitle('CutMix + MixUp Augmentation')
+    plt.suptitle('CutMix + MixUp + Rand Augmentation')
     plt.show()
     
