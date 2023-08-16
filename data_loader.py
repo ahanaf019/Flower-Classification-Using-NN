@@ -151,6 +151,23 @@ class DataSet:
         return image, label
     
     
+    def mix_up(self, ds_one, ds_two, alpha=0.2):
+        # Unpack two datasets
+        images_one, labels_one = ds_one
+        images_two, labels_two = ds_two
+        batch_size = tf.shape(images_one)[0]
+
+        # Sample lambda and reshape it to do the mixup
+        l = self.sample_beta_distribution(batch_size, alpha, alpha)
+        x_l = tf.reshape(l, (batch_size, 1, 1, 1))
+        y_l = tf.reshape(l, (batch_size, 1))
+
+        # Perform mixup on both images and labels by combining a pair of images/labels
+        # (one from each dataset) into one image/label
+        images = images_one * x_l + images_two * (1 - x_l)
+        labels = labels_one * y_l + labels_two * (1 - y_l)
+        return (images, labels)
+    
 
 if __name__ == '__main__':
     # How to use the Dataset Class
@@ -161,6 +178,9 @@ if __name__ == '__main__':
     # split according to the given ratio.
     train_data, val_data = dataset(validation_split=0.2)
     
+    
+    ### Using CutMix
+    # --------------------------------------------------------------------
     # Two datasets are required for CutMix.
     # SOURCE: https://keras.io/examples/vision/cutmix/
     t1 = train_data.map(lambda x, y: (x, y))
@@ -172,6 +192,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import numpy as np
     
+    # Plot results
     image_batch, label_batch = next(iter(train_ds_cmu))
     plt.figure(figsize=(10, 10))
     for i in range(9):
@@ -179,6 +200,51 @@ if __name__ == '__main__':
         plt.title(dataset.class_names[np.argmax(label_batch[i].numpy())])
         plt.imshow(image_batch[i])
         plt.axis("off")
-    plt.show()
+    plt.suptitle('CutMix Augmentation')
+    # plt.show()
     
+    
+    ### Using MixUp
+    # ---------------------------------------------------------------------
+    # Two datasets are required for MixUp. NOTE: for MixUp we need to batch
+    # first.
+    # SOURCE: https://keras.io/examples/vision/mixup/
+    t1 = train_data.map(lambda x, y: (x, y)).batch(32)
+    t2 = train_data.map(lambda x, y: (x, y)).batch(32)
+    td = tf.data.Dataset.zip((t1, t2))
+    train_ds_mu = td.map(lambda ds_one, ds_two: dataset.mix_up(ds_one, ds_two, alpha=0.2), num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+    
+    # Plot results
+    image_batch, label_batch = next(iter(train_ds_mu))
+    plt.figure(figsize=(10, 10))
+    for i in range(9):
+        ax = plt.subplot(3, 3, i + 1)
+        plt.title(dataset.class_names[np.argmax(label_batch[i].numpy())])
+        plt.imshow(image_batch[i])
+        plt.axis("off")
+    plt.suptitle('MixUp Augmentation')
+    # plt.show()
+    
+    
+    ### Using CutMix and MixUp together
+    # ---------------------------------------------------------------------
+    t1 = train_data.map(lambda x, y: (x, y))
+    t2 = train_data.map(lambda x, y: (x, y))
+    
+    td = tf.data.Dataset.zip((t1, t2))
+    train_ds_cmu1 = td.map(dataset.cutmix, num_parallel_calls=tf.data.AUTOTUNE).batch(32)
+    train_ds_cmu2 = td.map(dataset.cutmix, num_parallel_calls=tf.data.AUTOTUNE).batch(32)
+    td = tf.data.Dataset.zip((train_ds_cmu1, train_ds_cmu2))
+    train_ds_cmu_mu = td.map(lambda train_ds_cmu1, train_ds_cmu2: dataset.mix_up(train_ds_cmu1, train_ds_cmu2, alpha=0.2), num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+    
+    # Plot results
+    image_batch, label_batch = next(iter(train_ds_cmu_mu))
+    plt.figure(figsize=(10, 10))
+    for i in range(9):
+        ax = plt.subplot(3, 3, i + 1)
+        plt.title(dataset.class_names[np.argmax(label_batch[i].numpy())])
+        plt.imshow(image_batch[i])
+        plt.axis("off")
+    plt.suptitle('CutMix + MixUp Augmentation')
+    plt.show()
     
