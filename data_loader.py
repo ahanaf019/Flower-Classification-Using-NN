@@ -5,6 +5,10 @@ from imgaug import augmenters as iaa
 import matplotlib.pyplot as plt
 import numpy as np
 
+# SEED = 225
+# import fwr13y.d9m.tensorflow as tf_determinism
+# tf.keras.utils.set_random_seed(SEED)
+# tf_determinism.enable_determinism()
 
 class DataSet:
     def __init__(self, dataset_dir : str, image_size : int=224, rand_aug_N : int=5, rand_aug_M : int=2):
@@ -176,7 +180,6 @@ class DataSet:
     
 
     # SOURCE: https://keras.io/examples/vision/randaugment/
-    @tf.function
     def rand_augment(self, images):
         # Input to `augment()` is a TensorFlow tensor which
         # is not supported by `imgaug`. This is why we first
@@ -217,7 +220,7 @@ if __name__ == '__main__':
         plt.axis("off")
     plt.suptitle('CutMix Augmentation')
     # plt.show()
-    plt.savefig("figures/CutMix.png")
+    # plt.savefig("figures/CutMix.png")
     
     
     ### Using MixUp
@@ -239,7 +242,7 @@ if __name__ == '__main__':
         plt.imshow(image_batch[i])
         plt.axis("off")
     plt.suptitle('MixUp Augmentation')
-    plt.savefig("figures/MixUp.png")
+    # plt.savefig("figures/MixUp.png")
     # plt.show()
     
     
@@ -259,7 +262,7 @@ if __name__ == '__main__':
         plt.imshow(image.numpy())
         plt.axis("off")
     plt.suptitle('Rand Augmentation')
-    plt.savefig("figures/RandAugment.png")
+    # plt.savefig("figures/RandAugment.png")
     # plt.show()
     
     
@@ -290,5 +293,6 @@ if __name__ == '__main__':
         plt.imshow(image_batch[i])
         plt.axis("off")
     plt.suptitle('CutMix + MixUp + Rand Augmentation')
-    plt.savefig("figures/CutMix+MixUp+RandAugment.png")
+    # plt.savefig("figures/CutMix+MixUp+RandAugment.png")
+    plt.show()
     
